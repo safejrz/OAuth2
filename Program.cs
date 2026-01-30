@@ -8,34 +8,21 @@ builder.Services.AddDataProtection();
 
 var app = builder.Build();
 
-app.MapGet("username", (HttpContext http, [FromServices] IDataProtectionProvider idp) =>
-    {
-        if (!http.Request.Cookies.TryGetValue("auth", out var protectedPayload))
-        {
-            return Results.Unauthorized();
-        }
+app.MapGet("username", (HttpContext http) => 
+    {        
 
-        var protector = idp.CreateProtector("auth-cookie");
-
-        string payload;
-        try
-        {
-            payload = protector.Unprotect(protectedPayload);
-        }
-        catch (CryptographicException)
-        {
-            return Results.Unauthorized();
-        }
-
-        var value = payload.Split(':').LastOrDefault();
-        return value is null ? Results.Unauthorized() : Results.Ok(value);
+        var authcookie = http.Request.Headers.Cookie.FirstOrDefault(x => x.StartsWith("auth="));        
+        var payload = authcookie?.Split('=').Last();
+        var parts = payload?.Split(':');
+        var key = parts?.FirstOrDefault();
+        var value = parts?.LastOrDefault();
+        return value;
     });
 
-app.MapGet("/login", (HttpContext http, [FromServices] IDataProtectionProvider idp) =>
+app.MapGet("/login", (HttpContext http) =>
     {
-        var protector = idp.CreateProtector("auth-cookie");
-        http.Response.Cookies.Append("auth", protector.Protect("usr:javier"));
-        return Results.Ok("ok");
+        http.Response.Headers["set-cookie"] = "auth=usr:javier";
+        return "ok";
     });
 
-app.Run();
+    app.Run();
