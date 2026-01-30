@@ -8,6 +8,7 @@ builder.Services.AddDataProtection();
 
 var app = builder.Build();
 
+//Recognizing the authenticated user from the auth cookie
 app.MapGet("username", (HttpContext http, IDataProtectionProvider idp) => 
     {        
         var protector = idp.CreateProtector("auth-cookie");
@@ -21,6 +22,7 @@ app.MapGet("username", (HttpContext http, IDataProtectionProvider idp) =>
         return value;
     });
 
+//Creating the auth cookie
 app.MapGet("/login", (HttpContext http, IDataProtectionProvider idp) =>
     {
         var protector = idp.CreateProtector("auth-cookie");
