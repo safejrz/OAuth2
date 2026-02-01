@@ -76,15 +76,20 @@ app.Run();
 
 static void ConfigureCookieRedirects(CookieAuthenticationOptions options)
 {
-    options.Events ??= new CookieAuthenticationEvents();
-    options.Events.OnRedirectToAccessDenied = ctx =>
+    options.LoginPath = "/login";
+
+    options.Events = new CookieAuthenticationEvents
     {
-        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-        return Task.CompletedTask;
-    };
-    options.Events.OnRedirectToLogin = ctx =>
-    {
-        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        return Task.CompletedTask;
+        OnRedirectToLogin = ctx =>
+        {
+            ctx.Response.Redirect("/login");
+            return Task.CompletedTask;
+        },
+
+        OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        }
     };
 }
