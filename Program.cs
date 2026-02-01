@@ -23,13 +23,18 @@ app.Use((ctx, next) =>
     var key = parts?.FirstOrDefault();
     var value = parts?.LastOrDefault();
 
+    var claims = new List<Claim>();
+    claims.Add(new Claim(key, value));
+    var identity = new ClaimsIdentity(claims);
+    ctx.User = new ClaimsPrincipal(identity);
+
     return next();
 });
 
 //Recognizing the authenticated user from the auth cookie
 app.MapGet("username", (HttpContext ctx) =>
     {
-        return ctx.User;
+        return ctx.User.FindFirst("usr").Value;
     });
 
 //Creating the auth cookie
