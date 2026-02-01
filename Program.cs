@@ -10,32 +10,48 @@ builder.Services.AddAuthentication(AuthScheme)
     .AddCookie(AuthScheme)
     .AddCookie(AuthScheme2);
 
+builder.Services.AddAuthorization(builder => 
+{
+    builder.AddPolicy("eu passport", pb => 
+    {
+        pb.RequireAuthenticatedUser();
+        pb.RequireClaim("passport_type", "eur");
+    }); 
+
+    builder.AddPolicy("NOR passport", pb => 
+    {
+        pb.RequireAuthenticatedUser();
+        pb.RequireClaim("passport_type", "NOR");
+    });
+});
+
 var app = builder.Build();
 
 app.UseAuthentication();
+app.UseAuthorization();
 
-app.Use((ctx, next) =>
-{
-    if (ctx.Request.Path.StartsWithSegments("/login"))
-    {
-        return next();
-    }
+// app.Use((ctx, next) =>
+// {
+//     if (ctx.Request.Path.StartsWithSegments("/login"))
+//     {
+//         return next();
+//     }
 
-    if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
-    {
-        ctx.Response.StatusCode = 401;
-        return Task.CompletedTask;
-    }
+//     if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
+//     {
+//         ctx.Response.StatusCode = 401;
+//         return Task.CompletedTask;
+//     }
 
-    if (!ctx.User.HasClaim("passport_type", "eur"))
-    {
-        ctx.Response.StatusCode = 403;
-        return Task.CompletedTask;
-    }
+//     if (!ctx.User.HasClaim("passport_type", "eur"))
+//     {
+//         ctx.Response.StatusCode = 403;
+//         return Task.CompletedTask;
+//     }
 
-    //This will ensure that the user is set on the HttpContext.User
-    return next();
-});
+//     //This will ensure that the user is set on the HttpContext.User
+//     return next();
+// });
 
 //Recognizing the authenticated user from the auth cookie
 app.MapGet("/unsecure", (HttpContext ctx) =>
@@ -59,7 +75,7 @@ app.MapGet("/sweden", (HttpContext ctx) =>
         // }
         
         return "allowed";
-    });
+    }).RequireAuthorization("eu passport");
 
     app.MapGet("/norway", (HttpContext ctx) =>
     {
@@ -76,7 +92,7 @@ app.MapGet("/sweden", (HttpContext ctx) =>
         }
         
         return "allowed";
-    });
+    }).RequireAuthorization("NOR passport");
 
     app.MapGet("/denmark", (HttpContext ctx) =>
     {
@@ -93,7 +109,7 @@ app.MapGet("/sweden", (HttpContext ctx) =>
         // }
         
         return "allowed";
-    });
+    }).RequireAuthorization("eu passport")  ;
 
 //Creating the auth cookie
 app.MapGet("/login", async (HttpContext ctx) =>
@@ -106,6 +122,6 @@ app.MapGet("/login", async (HttpContext ctx) =>
         var identity = new ClaimsIdentity(claims, AuthScheme);
         var user = new ClaimsPrincipal(identity);
         await ctx.SignInAsync(AuthScheme, user);
-    });
+    }).AllowAnonymous();
 
 app.Run();
