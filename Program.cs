@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 const string AuthScheme = "cookie";
 const string AuthScheme2 = "cookie2";
@@ -7,18 +8,18 @@ const string AuthScheme2 = "cookie2";
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuthentication(AuthScheme)
-    .AddCookie(AuthScheme)
-    .AddCookie(AuthScheme2);
+    .AddCookie(AuthScheme, options => ConfigureCookieRedirects(options))
+    .AddCookie(AuthScheme2, options => ConfigureCookieRedirects(options));
 
-builder.Services.AddAuthorization(builder => 
+builder.Services.AddAuthorization(builder =>
 {
-    builder.AddPolicy("eu passport", pb => 
+    builder.AddPolicy("eu passport", pb =>
     {
         pb.RequireAuthenticatedUser();
         pb.RequireClaim("passport_type", "eur");
-    }); 
+    });
 
-    builder.AddPolicy("NOR passport", pb => 
+    builder.AddPolicy("NOR passport", pb =>
     {
         pb.RequireAuthenticatedUser();
         pb.RequireClaim("passport_type", "NOR");
@@ -30,86 +31,33 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// app.Use((ctx, next) =>
-// {
-//     if (ctx.Request.Path.StartsWithSegments("/login"))
-//     {
-//         return next();
-//     }
-
-//     if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
-//     {
-//         ctx.Response.StatusCode = 401;
-//         return Task.CompletedTask;
-//     }
-
-//     if (!ctx.User.HasClaim("passport_type", "eur"))
-//     {
-//         ctx.Response.StatusCode = 403;
-//         return Task.CompletedTask;
-//     }
-
-//     //This will ensure that the user is set on the HttpContext.User
-//     return next();
-// });
-
 //Recognizing the authenticated user from the auth cookie
 app.MapGet("/unsecure", (HttpContext ctx) =>
     {
         var userClaim = ctx.User?.FindFirst("usr");
         return userClaim?.Value ?? "empty";
-    });
+    }).AllowAnonymous();
 
 app.MapGet("/sweden", (HttpContext ctx) =>
     {
-        // if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
-        // {
-        //     ctx.Response.StatusCode = 401;
-        //     return "";
-        // }
-        
-        // if (!ctx.User.HasClaim("passport_type", "eur"))
-        // {
-        //     ctx.Response.StatusCode = 403;
-        //     return "";
-        // }
-        
         return "allowed";
     }).RequireAuthorization("eu passport");
 
-    app.MapGet("/norway", (HttpContext ctx) =>
+app.MapGet("/norway", (HttpContext ctx) =>
+{
+    if (!ctx.User.HasClaim("passport_type", "NOR"))
     {
-        // if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
-        // {
-        //     ctx.Response.StatusCode = 401;
-        //     return "";
-        // }
-        
-        if (!ctx.User.HasClaim("passport_type", "NOR"))
-        {
-            ctx.Response.StatusCode = 403;
-            return "";
-        }
-        
-        return "allowed";
-    }).RequireAuthorization("NOR passport");
+        ctx.Response.StatusCode = 403;
+        return "";
+    }
 
-    app.MapGet("/denmark", (HttpContext ctx) =>
-    {
-        // if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme || x.AuthenticationType == AuthScheme2))
-        // {
-        //     ctx.Response.StatusCode = 401;
-        //     return "";
-        // }
-        
-        // if (!ctx.User.HasClaim("passport_type", "eur"))
-        // {
-        //     ctx.Response.StatusCode = 403;
-        //     return "";
-        // }
-        
-        return "allowed";
-    }).RequireAuthorization("eu passport")  ;
+    return "allowed";
+}).RequireAuthorization("NOR passport");
+
+app.MapGet("/denmark", (HttpContext ctx) =>
+{
+    return "allowed";
+}).RequireAuthorization("eu passport");
 
 //Creating the auth cookie
 app.MapGet("/login", async (HttpContext ctx) =>
@@ -125,3 +73,18 @@ app.MapGet("/login", async (HttpContext ctx) =>
     }).AllowAnonymous();
 
 app.Run();
+
+static void ConfigureCookieRedirects(CookieAuthenticationOptions options)
+{
+    options.Events ??= new CookieAuthenticationEvents();
+    options.Events.OnRedirectToAccessDenied = ctx =>
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToLogin = ctx =>
+    {
+        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+}
