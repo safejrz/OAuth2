@@ -8,8 +8,8 @@ const string AuthScheme2 = "cookie2";
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuthentication(AuthScheme)
-    .AddCookie(AuthScheme, options => ConfigureCookieRedirects(options))
-    .AddCookie(AuthScheme2, options => ConfigureCookieRedirects(options));
+    .AddCookie(AuthScheme, ConfigureCookieRedirects)
+    .AddCookie(AuthScheme2, ConfigureCookieRedirects);
 
 builder.Services.AddAuthorization(builder =>
 {
