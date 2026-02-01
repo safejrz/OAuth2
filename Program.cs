@@ -2,15 +2,37 @@
 using Microsoft.AspNetCore.Authentication;
 
 const string AuthScheme = "cookie";
+const string AuthScheme2 = "cookie2";
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuthentication(AuthScheme)
-    .AddCookie(AuthScheme);
+    .AddCookie(AuthScheme)
+    .AddCookie(AuthScheme2);
 
 var app = builder.Build();
 
 app.UseAuthentication();
+
+/*
+app.Use((ctx, next) =>
+{
+    if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
+    {
+        ctx.Response.StatusCode = 401;
+        return Task.CompletedTask;
+    }
+
+    if (!ctx.User.HasClaim("passport_type", "eur"))
+    {
+        ctx.Response.StatusCode = 403;
+        return Task.CompletedTask;
+    }
+
+    //This will ensure that the user is set on the HttpContext.User
+    return next();
+});
+*/
 
 //Recognizing the authenticated user from the auth cookie
 app.MapGet("/unsecure", (HttpContext ctx) =>
@@ -28,6 +50,40 @@ app.MapGet("/sweden", (HttpContext ctx) =>
         }
         
         if (!ctx.User.HasClaim("passport_type", "eur"))
+        {
+            ctx.Response.StatusCode = 403;
+            return "";
+        }
+        
+        return "allowed";
+    });
+
+app.MapGet("/denmark", (HttpContext ctx) =>
+    {
+        if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme || x.AuthenticationType == AuthScheme2))
+        {
+            ctx.Response.StatusCode = 401;
+            return "";
+        }
+        
+        if (!ctx.User.HasClaim("passport_type", "eur"))
+        {
+            ctx.Response.StatusCode = 403;
+            return "";
+        }
+        
+        return "allowed";
+    });
+
+    app.MapGet("/norway", (HttpContext ctx) =>
+    {
+        if(!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
+        {
+            ctx.Response.StatusCode = 401;
+            return "";
+        }
+        
+        if (!ctx.User.HasClaim("passport_type", "NOR"))
         {
             ctx.Response.StatusCode = 403;
             return "";
